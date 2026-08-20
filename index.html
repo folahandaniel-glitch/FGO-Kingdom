@@ -348,9 +348,17 @@
       <label>Phone Number</label><input id="e-phone">
       <label>Role</label>
       <select id="e-role"><option>Intern Pastor</option><option>Ordained Pastor</option><option>Church Worker</option><option>Member</option></select>
-      <label>Access Passcode</label><input id="e-passcode" placeholder="Enter the passcode given by Admin">
-      <p class="small-note">Studying course material and sitting exams requires a passcode. Contact Admin on WhatsApp <strong style="color:var(--gold-soft);">08067578112</strong> to obtain yours.</p>
-      <button class="btn" onclick="enrollCourse()">Confirm Enrollment</button>
+
+      <div id="e-pay-option" class="hidden" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+        <p class="small-note" style="margin:0 0 8px;">Pay the course fee now to unlock study materials and the exam instantly &mdash; no need to contact Admin.</p>
+        <button class="btn crimson" id="e-pay-btn" onclick="payForEnrollment()">Pay <span id="e-fee-label"></span> &amp; Enroll</button>
+      </div>
+
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+        <label>Or, Already Have an Access Passcode?</label><input id="e-passcode" placeholder="Enter your passcode">
+        <p class="small-note">Contact Admin on WhatsApp <strong style="color:var(--gold-soft);">08067578112</strong> if you'd rather pay offline and receive a passcode.</p>
+        <button class="btn secondary" onclick="enrollCourse()">Enroll With Passcode</button>
+      </div>
       <button class="btn secondary" onclick="closeEnroll()">Cancel</button>
       <div class="msg" id="e-msg"></div>
     </div>
@@ -359,10 +367,14 @@
       <h2 style="border:none;padding:0;" id="exam-title">Exam</h2>
 
       <div id="exam-locked-gate">
-        <p class="lead util" style="font-size:0.85rem;">This exam requires an access passcode. Contact Admin on WhatsApp <strong style="color:var(--gold-soft);">08067578112</strong> to obtain yours.</p>
+        <p class="lead util" style="font-size:0.85rem;">This exam requires an access passcode.</p>
         <label>Your Name</label><input id="xg-name">
-        <label>Access Passcode</label><input id="xg-passcode">
-        <button class="btn" onclick="unlockExam()">Unlock Exam</button>
+        <div id="xg-pay-option" class="hidden" style="margin:10px 0;">
+          <button class="btn crimson" onclick="payForExamAccess()">Pay <span id="xg-fee-label"></span> &amp; Unlock Instantly</button>
+        </div>
+        <label>Or Enter Your Passcode</label><input id="xg-passcode">
+        <p class="small-note">Contact Admin on WhatsApp <strong style="color:var(--gold-soft);">08067578112</strong> if you'd rather pay offline.</p>
+        <button class="btn secondary" onclick="unlockExam()">Unlock With Passcode</button>
         <div class="msg" id="xg-msg"></div>
       </div>
 
@@ -552,11 +564,34 @@
         <p class="small-note" id="g-not-configured">Online giving isn't active yet &mdash; Admin needs to add a Paystack public key in the Admin panel first.</p>
       </div>
 
-      <div class="card util">
-        <h2 style="border:none;padding:0;">Recent Gifts</h2>
-        <p class="small-note" style="margin-top:-4px;">Shown without amounts for privacy &mdash; totals are visible to Admin only.</p>
-        <div id="give-recent-list" style="font-size:0.85rem;color:var(--muted);"></div>
+      <div class="card util" style="border-color:var(--gold);">
+        <h2 style="border:none;padding:0;">Bank Transfer</h2>
+        <p class="lead" style="font-size:0.85rem;margin:0 0 14px;">Prefer to transfer directly? Use these details, then send your proof of payment to Admin on WhatsApp for prompt acknowledgement.</p>
+        <div style="background:#0A1523;border:1px solid var(--line);border-radius:8px;padding:16px;">
+          <div style="margin-bottom:12px;">
+            <div class="small-note" style="margin:0;text-transform:uppercase;letter-spacing:1px;">Account Name</div>
+            <div style="color:var(--ivory);font-size:1rem;">Banjo Folahan Daniel</div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <div class="small-note" style="margin:0;text-transform:uppercase;letter-spacing:1px;">Bank Name</div>
+            <div style="color:var(--ivory);font-size:1rem;">GTBank</div>
+          </div>
+          <div>
+            <div class="small-note" style="margin:0;text-transform:uppercase;letter-spacing:1px;">Account Number</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="gtb-acct-number" style="color:var(--gold-soft);font-size:1.15rem;font-family:monospace;letter-spacing:1px;">0121041488</div>
+              <button class="btn secondary" style="margin:0;padding:4px 10px;font-size:0.7rem;" onclick="copyAccountNumber()">Copy</button>
+            </div>
+          </div>
+        </div>
+        <p class="small-note" id="gtb-copy-msg" style="margin-top:8px;"></p>
       </div>
+    </div>
+
+    <div class="card util" style="margin-top:16px;">
+      <h2 style="border:none;padding:0;">Recent Gifts</h2>
+      <p class="small-note" style="margin-top:-4px;">Shown without amounts for privacy &mdash; totals are visible to Admin only.</p>
+      <div id="give-recent-list" style="font-size:0.85rem;color:var(--muted);"></div>
     </div>
   </section>
 
@@ -739,6 +774,13 @@ D) A myth</pre>
         <p class="small-note" style="margin-top:6px;">Get this from your Paystack Dashboard &rarr; Settings &rarr; API Keys. Use a pk_test_ key first to confirm everything works before switching to pk_live_.</p>
         <button class="btn" onclick="savePaystackKey()">Save Key</button>
         <div class="msg" id="pk-msg"></div>
+
+        <h3 style="font-size:0.8rem;color:var(--gold);margin:18px 0 4px;border-top:1px solid var(--line);padding-top:14px;">Bible School Fee</h3>
+        <label>Standard Fee Per Course (&#8358;)</label>
+        <input id="sf-amount" type="number" min="0" placeholder="e.g. 5000">
+        <p class="small-note" style="margin-top:6px;">Set to 0 to keep Bible School free and rely on manually issued passcodes only.</p>
+        <button class="btn" onclick="saveSchoolFee()">Save Fee</button>
+        <div class="msg" id="sf-msg"></div>
       </div>
 
       <div class="card util">
@@ -930,6 +972,18 @@ async function lookupMember(){
 }
 
 /* ============ Online Giving (Paystack) ============ */
+function copyAccountNumber(){
+  const num = document.getElementById('gtb-acct-number').textContent;
+  const msg = document.getElementById('gtb-copy-msg');
+  navigator.clipboard.writeText(num).then(()=>{
+    msg.textContent = 'Account number copied.';
+    msg.style.color = 'var(--gold-soft)';
+    setTimeout(()=>{ msg.textContent=''; }, 3000);
+  }).catch(()=>{
+    msg.textContent = 'Could not copy automatically — please copy it manually.';
+  });
+}
+
 async function savePaystackKey(){
   const key = document.getElementById('pk-key').value.trim();
   const msg = document.getElementById('pk-msg');
@@ -938,6 +992,82 @@ async function savePaystackKey(){
   showMsg(msg, 'Paystack key saved. Online giving is now active.', 'ok');
   logAdminActivity('Updated Paystack public key');
   checkGivingConfigured();
+}
+
+async function saveSchoolFee(){
+  const amount = parseFloat(document.getElementById('sf-amount').value) || 0;
+  const msg = document.getElementById('sf-msg');
+  await sSet('config:schoolfee', { amount });
+  showMsg(msg, 'Bible School fee updated.', 'ok');
+  logAdminActivity('Set Bible School fee to ₦' + amount.toLocaleString());
+}
+
+async function getSchoolFee(){
+  const cfg = await sGet('config:schoolfee');
+  return cfg ? cfg.amount : 0;
+}
+
+async function generatePaidPasscode(name){
+  const code = randomPasscode();
+  await sSet('passcode:'+code, { code, used:true, usedBy:name, usedAt:new Date().toISOString(), createdAt:new Date().toISOString(), viaPurchase:true });
+  studentAccessGranted = true;
+  return code;
+}
+
+function payWithPaystack(name, email, amount, purpose){
+  return new Promise((resolve, reject)=>{
+    sGet('config:paystackkey').then(cfg=>{
+      if(!cfg || !cfg.key){ reject('Online payment is not configured yet. Contact Admin on WhatsApp 08067578112.'); return; }
+      if(typeof PaystackPop === 'undefined'){ reject('Payment system failed to load. Check your connection and try again.'); return; }
+      const handler = PaystackPop.setup({
+        key: cfg.key,
+        email: email || 'no-reply@fgo.church',
+        amount: Math.round(amount * 100),
+        currency: 'NGN',
+        metadata: { name, purpose },
+        callback: function(response){ resolve(response.reference); },
+        onClose: function(){ reject('Payment window closed.'); }
+      });
+      handler.openIframe();
+    });
+  });
+}
+
+async function payForEnrollment(){
+  const name = document.getElementById('e-name').value.trim();
+  const phone = document.getElementById('e-phone').value.trim();
+  const msg = document.getElementById('e-msg');
+  if(!name || !phone){ showMsg(msg,'Enter your name and phone number first.','err'); return; }
+  const fee = await getSchoolFee();
+  try{
+    const reference = await payWithPaystack(name, '', fee, currentCourseObj.name + ' Enrollment');
+    await recordGift({ name, email:'', purpose:'Bible School Fees', amount: fee, reference, date: new Date().toISOString() });
+    await generatePaidPasscode(name);
+    const rec = { id: uid(), name, phone, role: document.getElementById('e-role').value, courseId: currentCourse, courseName: currentCourseObj.name, date: new Date().toISOString() };
+    await sSet('enroll:'+rec.id, rec);
+    showMsg(msg, 'Payment received. You are enrolled and unlocked for ' + rec.courseName + '.', 'ok');
+    loadHomeStats();
+  }catch(err){
+    showMsg(msg, typeof err === 'string' ? err : 'Payment was not completed.', 'err');
+  }
+}
+
+async function payForExamAccess(){
+  const name = document.getElementById('xg-name').value.trim();
+  const msg = document.getElementById('xg-msg');
+  if(!name){ showMsg(msg,'Enter your name first.','err'); return; }
+  const fee = await getSchoolFee();
+  try{
+    const reference = await payWithPaystack(name, '', fee, currentCourseObj.name + ' Exam Access');
+    await recordGift({ name, email:'', purpose:'Bible School Fees', amount: fee, reference, date: new Date().toISOString() });
+    await generatePaidPasscode(name);
+    await renderExamQuestions(currentCourse);
+    document.getElementById('exam-locked-gate').classList.add('hidden');
+    document.getElementById('exam-content').classList.remove('hidden');
+    document.getElementById('x-name').value = name;
+  }catch(err){
+    showMsg(msg, typeof err === 'string' ? err : 'Payment was not completed.', 'err');
+  }
 }
 
 async function checkGivingConfigured(){
@@ -1131,9 +1261,19 @@ async function openEnroll(courseId){
   document.getElementById('enroll-title').textContent = 'Enroll — ' + currentCourseObj.name;
   document.getElementById('enroll-box').classList.remove('hidden');
   document.getElementById('exam-box').classList.add('hidden');
+  await refreshPayOption('e-pay-option', 'e-fee-label', 'e-pay-btn');
   document.getElementById('enroll-box').scrollIntoView({behavior:'smooth'});
 }
 function closeEnroll(){ document.getElementById('enroll-box').classList.add('hidden'); }
+
+async function refreshPayOption(wrapId, labelId, btnId){
+  const fee = await getSchoolFee();
+  const cfg = await sGet('config:paystackkey');
+  const wrap = document.getElementById(wrapId);
+  const canPay = fee > 0 && cfg && cfg.key;
+  wrap.classList.toggle('hidden', !canPay);
+  if(canPay) document.getElementById(labelId).textContent = '₦' + fee.toLocaleString();
+}
 
 async function enrollCourse(){
   const name = document.getElementById('e-name').value.trim();
@@ -1168,6 +1308,7 @@ async function openExam(courseId){
   if(!studentAccessGranted){
     document.getElementById('exam-locked-gate').classList.remove('hidden');
     document.getElementById('exam-content').classList.add('hidden');
+    await refreshPayOption('xg-pay-option', 'xg-fee-label', null);
     document.getElementById('exam-box').scrollIntoView({behavior:'smooth'});
     return;
   }
