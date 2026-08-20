@@ -220,6 +220,7 @@
     <button data-view="sermons">Library</button>
     <button data-view="forum">Forum</button>
     <button data-view="pastors">Pastors</button>
+    <button data-view="give" style="background:linear-gradient(135deg,var(--gold),var(--gold-soft));color:#241a02;border-radius:20px;font-weight:700;">Give</button>
     <button data-view="admin">Admin</button>
   </nav>
 </header>
@@ -529,6 +530,36 @@
     </div>
   </section>
 
+  <!-- GIVE / ONLINE GIVING -->
+  <section class="view" id="view-give">
+    <div class="eyebrow">Sow &amp; Support</div>
+    <h1 style="font-size:1.6rem;">Give to Fodan Gospel Outreach</h1>
+    <p class="lead">Your tithe, offering, or seed sustains the work of the ministry. Secure card and bank transfer payment via Paystack.</p>
+
+    <div class="grid cols-2">
+      <div class="card util">
+        <h2 style="border:none;padding:0;">Make a Gift</h2>
+        <label>Full Name</label><input id="g-name" placeholder="Your name">
+        <label>Email (required for receipt)</label><input id="g-email" type="email" placeholder="you@email.com">
+        <label>Purpose</label>
+        <select id="g-purpose">
+          <option>Tithe</option><option>Offering</option><option>Building Project</option>
+          <option>Bible School Fees</option><option>Seed / Special Giving</option><option>Welfare Support</option>
+        </select>
+        <label>Amount (&#8358;)</label><input id="g-amount" type="number" min="100" placeholder="e.g. 5000">
+        <button class="btn crimson" id="g-give-btn" onclick="startGiving()">Give Now</button>
+        <div class="msg" id="g-msg"></div>
+        <p class="small-note" id="g-not-configured">Online giving isn't active yet &mdash; Admin needs to add a Paystack public key in the Admin panel first.</p>
+      </div>
+
+      <div class="card util">
+        <h2 style="border:none;padding:0;">Recent Gifts</h2>
+        <p class="small-note" style="margin-top:-4px;">Shown without amounts for privacy &mdash; totals are visible to Admin only.</p>
+        <div id="give-recent-list" style="font-size:0.85rem;color:var(--muted);"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ADMIN -->
   <section class="view" id="view-admin">
     <div class="eyebrow">Administration</div>
@@ -701,6 +732,25 @@ D) A myth</pre>
         <div style="overflow-x:auto;"><table id="branch-reports-table"><thead><tr><th>Branch</th><th>Date</th><th>Service</th><th>M</th><th>F</th><th>Chd</th><th>1st</th><th>Offering</th><th>Expenses</th><th>Minister(s)</th></tr></thead><tbody></tbody></table></div>
       </div>
 
+      <div class="card util hidden" id="super-payment-section">
+        <h2 style="color:var(--gold-soft);">Super Admin &mdash; Online Giving Setup</h2>
+        <label>Paystack Public Key</label>
+        <input id="pk-key" placeholder="pk_live_xxxxxxxx or pk_test_xxxxxxxx">
+        <p class="small-note" style="margin-top:6px;">Get this from your Paystack Dashboard &rarr; Settings &rarr; API Keys. Use a pk_test_ key first to confirm everything works before switching to pk_live_.</p>
+        <button class="btn" onclick="savePaystackKey()">Save Key</button>
+        <div class="msg" id="pk-msg"></div>
+      </div>
+
+      <div class="card util">
+        <h2>Online Giving &mdash; Overview</h2>
+        <div class="grid cols-3 util" style="margin-bottom:16px;">
+          <div class="stat"><div class="n" id="gv-stat-count">0</div><div class="l">Gifts Received</div></div>
+          <div class="stat"><div class="n" id="gv-stat-total">&#8358;0</div><div class="l">Total Given</div></div>
+          <div class="stat"><div class="n" id="gv-stat-avg">&#8358;0</div><div class="l">Average Gift</div></div>
+        </div>
+        <div style="overflow-x:auto;"><table id="giving-table"><thead><tr><th>Name</th><th>Purpose</th><th>Amount</th><th>Date</th><th>Reference</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
       <div class="card util hidden" id="super-admin-section">
         <h2 style="color:var(--gold-soft);">Super Admin &mdash; Manage Admins</h2>
         <label>New Admin Username</label><input id="na-username" placeholder="e.g. sister.ada">
@@ -737,6 +787,7 @@ D) A myth</pre>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
+<script src="https://js.paystack.co/v1/inline.js"></script>
 <script>
 /* ============ Storage helpers ============ */
 async function sGet(key){ try{ const r = await window.storage.get(key, true); return r ? JSON.parse(r.value) : null; }catch(e){ return null; } }
@@ -876,6 +927,78 @@ async function lookupMember(){
     ${found.request ? '<div style="margin-top:6px;">Your request on file: <em>'+esc(found.request)+'</em></div>' : ''}
     <button class="btn secondary" style="margin-top:12px;" onclick="loadMemberIntoForm(window.__foundMember)">Edit My Details</button>
   </div>`;
+}
+
+/* ============ Online Giving (Paystack) ============ */
+async function savePaystackKey(){
+  const key = document.getElementById('pk-key').value.trim();
+  const msg = document.getElementById('pk-msg');
+  if(!key){ showMsg(msg,'Enter a Paystack public key.','err'); return; }
+  await sSet('config:paystackkey', { key });
+  showMsg(msg, 'Paystack key saved. Online giving is now active.', 'ok');
+  logAdminActivity('Updated Paystack public key');
+  checkGivingConfigured();
+}
+
+async function checkGivingConfigured(){
+  const cfg = await sGet('config:paystackkey');
+  const notice = document.getElementById('g-not-configured');
+  const btn = document.getElementById('g-give-btn');
+  if(cfg && cfg.key){
+    notice.classList.add('hidden');
+    btn.disabled = false;
+  } else {
+    notice.classList.remove('hidden');
+    btn.disabled = true;
+  }
+  const keyField = document.getElementById('pk-key');
+  if(keyField && cfg) keyField.value = cfg.key;
+}
+
+async function startGiving(){
+  const name = document.getElementById('g-name').value.trim();
+  const email = document.getElementById('g-email').value.trim();
+  const amount = parseFloat(document.getElementById('g-amount').value);
+  const purpose = document.getElementById('g-purpose').value;
+  const msg = document.getElementById('g-msg');
+  if(!name || !email || !amount || amount < 100){ showMsg(msg,'Enter your name, a valid email, and an amount of at least ₦100.','err'); return; }
+  const cfg = await sGet('config:paystackkey');
+  if(!cfg || !cfg.key){ showMsg(msg,'Online giving is not configured yet.','err'); return; }
+  if(typeof PaystackPop === 'undefined'){ showMsg(msg,'Payment system failed to load. Check your connection and try again.','err'); return; }
+
+  const handler = PaystackPop.setup({
+    key: cfg.key,
+    email: email,
+    amount: Math.round(amount * 100), // kobo
+    currency: 'NGN',
+    metadata: { name, purpose },
+    callback: function(response){
+      recordGift({ name, email, purpose, amount, reference: response.reference, date: new Date().toISOString() });
+      showMsg(msg, 'Thank you! Your gift was received. Reference: ' + response.reference, 'ok');
+      document.getElementById('g-amount').value = '';
+    },
+    onClose: function(){
+      showMsg(msg, 'Payment window closed.', 'err');
+    }
+  });
+  handler.openIframe();
+}
+
+async function recordGift(gift){
+  const rec = { id: uid(), ...gift };
+  await sSet('gift:'+rec.id, rec);
+  renderRecentGifts();
+}
+
+async function renderRecentGifts(){
+  const keys = await sList('gift:');
+  const items = []; for(const k of keys){ const g = await sGet(k); if(g) items.push(g); }
+  items.sort((a,b)=> new Date(b.date) - new Date(a.date));
+  const wrap = document.getElementById('give-recent-list');
+  if(!wrap) return;
+  wrap.innerHTML = items.slice(0,10).map(g=>
+    `<div style="padding:6px 0;border-bottom:1px solid var(--line);">${esc(g.name)} gave toward <span style="color:var(--gold-soft);">${esc(g.purpose)}</span> &middot; ${new Date(g.date).toLocaleDateString()}</div>`
+  ).join('') || '<p>No gifts recorded yet.</p>';
 }
 
 /* ============ Bible School Access Passcodes ============ */
@@ -1666,6 +1789,7 @@ function enterAdminPanel(){
   document.getElementById('super-activity-section').classList.toggle('hidden', currentAdmin.role !== 'super');
   document.getElementById('super-passcode-section').classList.toggle('hidden', currentAdmin.role !== 'super');
   document.getElementById('super-pastor-section').classList.toggle('hidden', currentAdmin.role !== 'super');
+  document.getElementById('super-payment-section').classList.toggle('hidden', currentAdmin.role !== 'super');
   document.getElementById('my-tasks-card').classList.toggle('hidden', currentAdmin.role === 'super');
   logAdminActivity('Logged in');
   loadAdmin();
@@ -1829,6 +1953,22 @@ async function loadAdmin(){
     ).join('') || '<tr><td colspan="3" style="color:var(--muted);">No tasks assigned to you yet.</td></tr>';
   }
 
+  // Online giving (all admins can view totals)
+  const giftKeys = await sList('gift:');
+  const gifts = []; for(const k of giftKeys){ const g = await sGet(k); if(g) gifts.push(g); }
+  gifts.sort((a,b)=> new Date(b.date) - new Date(a.date));
+  const gvCount = document.getElementById('gv-stat-count');
+  if(gvCount){
+    const total = gifts.reduce((s,g)=>s+g.amount,0);
+    gvCount.textContent = gifts.length;
+    document.getElementById('gv-stat-total').textContent = '₦' + total.toLocaleString();
+    document.getElementById('gv-stat-avg').textContent = '₦' + (gifts.length ? Math.round(total/gifts.length).toLocaleString() : 0);
+    document.querySelector('#giving-table tbody').innerHTML = gifts.map(g=>
+      `<tr><td>${esc(g.name)}</td><td>${esc(g.purpose)}</td><td>₦${g.amount.toLocaleString()}</td><td>${new Date(g.date).toLocaleDateString()}</td><td style="font-family:monospace;font-size:0.72rem;">${esc(g.reference)}</td></tr>`
+    ).join('') || '<tr><td colspan="5" style="color:var(--muted);">No gifts recorded yet.</td></tr>';
+  }
+  if(document.getElementById('pk-key')) checkGivingConfigured();
+
   // Passcodes (super only)
   const pcKeys = await sList('passcode:');
   const pcTable = document.querySelector('#passcodes-table tbody');
@@ -1957,6 +2097,8 @@ async function seedKidLessonsIfEmpty(){
   addKidPanelRow();
   await loadAnnouncement();
   await loadHomeStats();
+  await checkGivingConfigured();
+  await renderRecentGifts();
 })();
 </script>
 </body>
